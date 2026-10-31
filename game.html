@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#6f422e">
+    <meta name="description" content="Masuk ke dapur ulang tahun Chaca dan buat kue bersama!">
+    <title>Dapur Ulang Tahun Chaca — Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="index.html" aria-label="Kembali ke halaman utama ulang tahun Chaca">
+          <span class="brand-icon" aria-hidden="true">♡</span>
+          <span>Dapur Chaca</span>
+        </a>
+        <a class="topbar-note" href="index.html"><span class="sparkle" aria-hidden="true">←</span> balik ke halaman ulang tahun</a>
+      </header>
+
+      <section class="hero" id="hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span aria-hidden="true">✿</span> the birthday edition <span aria-hidden="true">✿</span></div>
+          <h1>Hari ini ultah<br><span>Chaca!</span></h1>
+          <p class="hero-description">Panaskan penggorengan karena aku sudah lapar!(Chaca tau nggak dialog itu? Wkwkwkw)</p>
+
+          <label class="name-label" for="player-name">Namamu, chef!</label>
+          <input id="player-name" class="name-input" type="text" maxlength="18" placeholder="Dipanggil siapa enih?" autocomplete="given-name">
+          <div class="hero-actions">
+            <button class="button button-primary" id="solo-button" type="button">Mau solo <span aria-hidden="true">→</span></button>
+            <button class="button button-secondary" id="host-button" type="button">Bikin party <span aria-hidden="true">♡</span></button>
+          </div>
+          <div class="hero-footnote"><span aria-hidden="true">⏱</span> 3 menit · bisa berempat! · multi platform!</div>
+          <p class="invite-notice" id="invite-notice" hidden>Ayo main! Masukin nama, terus langsung join aja! <span aria-hidden="true">↓</span></p>
+        </div>
+
+        <div class="hero-art" aria-label="A birthday cake with candles and strawberries">
+          <div class="art-sun"></div>
+          <div class="art-spark art-spark-one">✦</div>
+          <div class="art-spark art-spark-two">✧</div>
+          <div class="art-berry berry-one">🍓</div>
+          <div class="art-berry berry-two">🍓</div>
+          <div class="cake-plate"></div>
+          <div class="cake cake-bottom"></div>
+          <div class="cake cake-top"></div>
+          <div class="cake-icing"></div>
+          <div class="candle candle-one"><i></i></div>
+          <div class="candle candle-two"><i></i></div>
+          <div class="candle candle-three"><i></i></div>
+          <div class="cake-heart">♡</div>
+          <div class="art-caption">untuk chacak!</div>
+        </div>
+      </section>
+
+      <section class="room-panel panel" id="room-panel" hidden>
+        <div class="panel-heading">
+          <div>
+            <div class="eyebrow">the party kitchen</div>
+            <h2 id="room-title">Ready, chef?</h2>
+          </div>
+          <button class="icon-button" id="back-button" type="button" aria-label="Back to home">✕</button>
+        </div>
+        <div id="host-lobby" hidden>
+          <p class="panel-copy">You're the head chef! Invite up to three friends, then start the birthday rush whenever you're ready.</p>
+          <div class="lobby-grid">
+            <div class="lobby-card">
+              <span class="step-number">01</span>
+              <h3>Send a party invite</h3>
+              <p>Share this link with your friends. They'll open it on their own device.</p>
+              <button class="button button-primary button-small" id="invite-button" type="button">Make invite link <span aria-hidden="true">↗</span></button>
+              <div class="copy-field" id="invite-field" hidden>
+                <input id="invite-link" type="text" readonly aria-label="Party invite link">
+                <button class="copy-button" id="copy-invite" type="button">Copy</button>
+              </div>
+            </div>
+            <div class="lobby-card">
+              <span class="step-number">02</span>
+              <h3>Connect their chef</h3>
+              <p>Ask a friend to send their connection code back to you, then paste it here.</p>
+              <label class="visually-hidden" for="answer-code">Friend's connection code</label>
+              <textarea id="answer-code" rows="3" placeholder="Paste your friend's connection code"></textarea>
+              <button class="button button-secondary button-small" id="connect-button" type="button">Connect chef <span aria-hidden="true">♡</span></button>
+            </div>
+          </div>
+          <div class="party-roster" id="lobby-roster"></div>
+          <div class="lobby-footer">
+            <p class="connection-note"><span aria-hidden="true">🔒</span> Players connect directly. No account or game server needed.</p>
+            <button class="button button-primary" id="start-party-button" type="button">Start the party <span aria-hidden="true">→</span></button>
+          </div>
+        </div>
+        <div id="join-lobby" hidden>
+          <p class="panel-copy">A friend saved you a spot in Chaca's birthday kitchen! Enter your chef name and connect to their game.</p>
+          <label class="name-label" for="join-name">Your chef name</label>
+          <input id="join-name" class="name-input" type="text" maxlength="18" placeholder="What should we call you?" autocomplete="given-name">
+          <button class="button button-primary" id="join-button" type="button">Join the party <span aria-hidden="true">♡</span></button>
+          <div class="answer-card" id="answer-card" hidden>
+            <h3>One last little step!</h3>
+            <p>Send this connection code to your host so they can let you into the kitchen.</p>
+            <textarea id="answer-output" rows="4" readonly aria-label="Your connection code"></textarea>
+            <button class="button button-secondary button-small" id="copy-answer" type="button">Copy connection code</button>
+            <p class="waiting-copy" id="waiting-copy" hidden>Waiting for the host to connect you…</p>
+          </div>
+        </div>
+        <div class="guest-waiting" id="guest-waiting" hidden>
+          <h3>You're on the guest list!</h3>
+          <p>Hang tight in the waiting room. Your host will start the birthday rush soon.</p>
+        </div>
+      </section>
+
+      <section class="game-panel" id="game-panel" hidden>
+        <div class="game-heading">
+          <div>
+            <div class="eyebrow">the birthday kitchen is open!</div>
+            <h2>Let's bake, chefs!</h2>
+          </div>
+          <div class="timer" id="timer" aria-label="Time remaining">
+            <span aria-hidden="true">⏱</span>
+            <span id="timer-value">3:00</span>
+          </div>
+        </div>
+
+        <div class="game-layout">
+          <section class="kitchen-card panel" aria-label="Kitchen game board">
+            <div class="kitchen-topline">
+              <div><span class="live-dot"></span><span id="round-status">birthday rush</span></div>
+              <span class="chef-count" id="chef-count">1 chef</span>
+            </div>
+            <div class="kitchen-board-wrap">
+              <span class="board-decoration board-decoration-one" aria-hidden="true">✦</span>
+              <span class="board-decoration board-decoration-two" aria-hidden="true">♡</span>
+              <div class="kitchen-board" id="kitchen-board" role="grid" aria-label="Birthday kitchen floor with movable stations and wooden prep tables"></div>
+            </div>
+            <p class="board-hint"><span aria-hidden="true">👆</span> Tap a glowing floor tile to scoot — wooden tables block the way!</p>
+          </section>
+
+          <aside class="game-sidebar">
+            <section class="order-card panel" aria-live="polite">
+              <div class="card-eyebrow"><span aria-hidden="true">✿</span> up next</div>
+              <h3 id="order-name">Getting the kitchen ready…</h3>
+              <p class="order-description" id="order-description">Pick up the ingredients for Chaca's birthday cake.</p>
+              <div class="recipe-list" id="recipe-list"></div>
+              <div class="tray-label"><span>Your cake tray</span><span id="tray-count">0 / 2</span></div>
+              <div class="tray-list" id="tray-list"></div>
+              <p class="order-tip" id="order-tip">Gather the ingredients, then deliver your cake at the center counter.</p>
+            </section>
+            <section class="score-card panel">
+              <div class="score-heading"><h3>Chef's table</h3><span aria-hidden="true">🏆</span></div>
+              <ol class="score-list" id="score-list"></ol>
+            </section>
+            <details class="party-controls panel" id="party-controls" hidden>
+              <summary>Party connection</summary>
+              <p>Invite up to three friends or connect a chef with their code.</p>
+              <button class="button button-secondary button-small" id="game-invite-button" type="button">Make invite link</button>
+              <div class="copy-field" id="game-invite-field" hidden>
+                <input id="game-invite-link" type="text" readonly aria-label="Party invite link">
+                <button class="copy-button" id="game-copy-invite" type="button">Copy</button>
+              </div>
+              <label class="visually-hidden" for="game-answer-code">Friend's connection code</label>
+              <textarea id="game-answer-code" rows="3" placeholder="Paste your friend's connection code"></textarea>
+              <button class="button button-secondary button-small" id="game-connect-button" type="button">Connect chef</button>
+            </details>
+          </aside>
+        </div>
+      </section>
+
+      <section class="end-screen" id="end-screen" hidden>
+        <div class="end-confetti" aria-hidden="true">✦　♡　✿　✧　✦</div>
+        <div class="eyebrow">that's a wrap, chefs!</div>
+        <h2 id="end-title">You made Chaca proud!</h2>
+        <p id="end-message">Thanks for cooking up a little birthday magic.</p>
+        <div class="end-score-card panel">
+          <span class="end-trophy" aria-hidden="true">🏆</span>
+          <span class="end-score-label">your final score</span>
+          <strong id="end-score">0</strong>
+          <span class="end-player" id="end-player"></span>
+        </div>
+        <div class="end-leaderboard" id="end-leaderboard"></div>
+        <div class="end-actions">
+          <button class="button button-primary" id="play-again-button" type="button">Play again <span aria-hidden="true">↻</span></button>
+          <button class="button button-secondary" id="home-button" type="button">Back to the birthday page</button>
+        </div>
+        <p class="birthday-signoff">Happy birthday, Chaca! <span aria-hidden="true">♡</span></p>
+      </section>
+
+      <footer class="site-footer">
+        <span>dibuat cuma untuk <span aria-hidden="true">Chaca</span> </span>
+        <span class="footer-cake" aria-hidden="true">🍰</span>
+      </footer>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="celebration-layer" id="celebration-layer" aria-hidden="true"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
