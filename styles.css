@@ -121,6 +121,7 @@ textarea { display: block; resize: vertical; padding: 10px 12px; font-size: 12px
 .answer-card h3 { margin-bottom: 7px; font-size: 20px; }
 .answer-card p { color: var(--muted); font-size: 12px; line-height: 1.6; }
 .answer-card textarea { margin-bottom: 10px; overflow-wrap: anywhere; }
+.answer-card textarea { word-break: break-all; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .waiting-copy { margin: 12px 0 0 !important; color: #69804d !important; font-weight: 700; }
 
 .game-panel { padding: 31px 0 53px; }
@@ -256,6 +257,9 @@ textarea { display: block; resize: vertical; padding: 10px 12px; font-size: 12px
   .hero-art { width: 100%; height: 318px; transform: scale(.88); margin-top: 0; margin-bottom: -38px; }
   .hero-actions .button { flex: 1 1 145px; padding: 0 12px; }
   .room-panel { padding: 18px 15px; }
+  .room-panel:has(#join-lobby:not([hidden])) { margin-top: 12px; }
+  .room-panel:has(#join-lobby:not([hidden])) .panel-copy { margin-top: 13px; }
+  .room-panel:has(#join-lobby:not([hidden])) .answer-card { max-width: none; }
   .panel-heading h2, .game-heading h2 { font-size: 28px; }
   .lobby-grid { grid-template-columns: 1fr; }
   .lobby-card { padding: 16px; }
@@ -273,6 +277,11 @@ textarea { display: block; resize: vertical; padding: 10px 12px; font-size: 12px
   .game-sidebar { grid-template-columns: 1fr; }
   .order-card { grid-row: auto; }
   .party-controls { grid-column: auto; }
+}
+
+@supports (-webkit-touch-callout: none) {
+  input, textarea { font-size: 16px; }
+  .answer-card textarea { min-height: 120px; font-size: 13px; -webkit-user-select: text; user-select: text; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -82,8 +82,11 @@
   };
 
   const newId = () => {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+      const bytes = window.crypto.getRandomValues(new Uint8Array(9));
+      return toBase64Url(bytes);
+    }
+    return `${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`.slice(0, 12);
   };
   const safeName = (value) => value.trim().slice(0, 18) || "Birthday chef";
   const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({
@@ -108,36 +111,72 @@
     el.timer.classList.toggle("is-low", app.state.timeLeft <= 30);
   }
 
-  function encodePayload(payload) {
-    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  function toBase64Url(bytes) {
     let binary = "";
     bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
     return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   }
 
-  function decodePayload(value) {
+  function fromBase64Url(value) {
     const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
     const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
-    const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+    return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+  }
+
+  async function encodePayload(payload) {
+    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+    if (typeof CompressionStream === "function") {
+      try {
+        const compressed = await new Response(
+          new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"))
+        ).arrayBuffer();
+        if (compressed.byteLength < bytes.byteLength) {
+          return `z.${toBase64Url(new Uint8Array(compressed))}`;
+        }
+      } catch (error) {
+        console.warn("Invite compression is unavailable; using the compatible uncompressed code.", error);
+      }
+    }
+    return `j.${toBase64Url(bytes)}`;
+  }
+
+  async function decodePayload(value) {
+    const normalized = value.replace(/[\s\u200B-\u200D\uFEFF]/g, "");
+    let bytes;
+    if (normalized.startsWith("z.")) {
+      if (typeof DecompressionStream !== "function") {
+        throw new Error("This browser cannot open compressed party codes. Update Safari or try another browser.");
+      }
+      const compressed = fromBase64Url(normalized.slice(2));
+      bytes = new Uint8Array(await new Response(
+        new Blob([compressed]).stream().pipeThrough(new DecompressionStream("gzip"))
+      ).arrayBuffer());
+    } else {
+      const legacyCode = normalized.startsWith("j.") ? normalized.slice(2) : normalized;
+      bytes = fromBase64Url(legacyCode);
+    }
     return JSON.parse(new TextDecoder().decode(bytes));
   }
 
-  function inviteUrl(payload) {
+  async function inviteUrl(payload) {
     const url = new URL(window.location.href);
-    url.hash = `join=${encodePayload(payload)}`;
+    url.hash = `join=${await encodePayload(payload)}`;
     return url.toString();
   }
 
-  function getInviteFromHash() {
+  async function getInviteFromHash() {
     const match = window.location.hash.match(/^#join=(.+)$/);
     if (!match) return null;
     try {
-      const payload = decodePayload(match[1]);
-      return payload && typeof payload.r === "string" && typeof payload.i === "string" &&
-        typeof payload.s === "string" ? payload : null;
+      const payload = await decodePayload(match[1]);
+      if (!payload || typeof payload.r !== "string" || typeof payload.i !== "string" ||
+        typeof payload.s !== "string") {
+        throw new Error("This party link is incomplete. Ask the host to make a fresh invite.");
+      }
+      return payload;
     } catch (error) {
       console.error("Could not read the party invite:", error);
-      return null;
+      throw error;
     }
   }
 
@@ -161,7 +200,10 @@
 
   function createPeerConnection() {
     return new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun.cloudflare.com:3478" }
+      ]
     });
   }
 
@@ -315,14 +357,15 @@
       if (pc.connectionState === "failed") {
         app.pending.delete(inviteId);
         app.peers.delete(inviteId);
-        showToast("That connection didn't go through. Try a new invite.");
+        showToast("Couldn't connect directly. Keep both game tabs open and try the same Wi-Fi; this serverless game can't relay blocked connections.");
+        pc.close();
         render();
       }
     };
     try {
       await pc.setLocalDescription(await pc.createOffer());
       await waitForIce(pc);
-      const url = inviteUrl({ r: app.roomId, i: inviteId, s: pc.localDescription.sdp });
+      const url = await inviteUrl({ r: app.roomId, i: inviteId, s: pc.localDescription.sdp });
       if (el.gamePanel.hidden) {
         el.inviteLink.value = url;
         el.inviteField.hidden = false;
@@ -341,18 +384,23 @@
   async function applyAnswer(rawAnswer) {
     let payload;
     try {
-      payload = decodePayload(rawAnswer.trim());
+      payload = await decodePayload(rawAnswer.trim());
     } catch (error) {
-      showToast("That code doesn't look right. Ask your friend to copy it again.");
+      showToast(error.message || "That code could not be read. Ask your friend to copy it again.");
       return;
     }
-    if (!payload || payload.r !== app.roomId || typeof payload.i !== "string" || typeof payload.a !== "string") {
-      showToast("This connection code doesn't match your party invite.");
+    if (!payload || typeof payload.r !== "string" || typeof payload.i !== "string" ||
+      typeof payload.a !== "string") {
+      showToast("This connection code is incomplete. Ask your friend to copy it again.");
+      return;
+    }
+    if (payload.r !== app.roomId) {
+      showToast("This code belongs to a different party invite. Use the code made from this link.");
       return;
     }
     const peer = app.pending.get(payload.i);
     if (!peer || peer.pc.signalingState !== "have-local-offer") {
-      showToast("That invite has expired. Make a fresh invite link.");
+      showToast("This invite is no longer active in the host's current tab. Make a fresh invite link and keep that tab open.");
       return;
     }
     const connectingCount = [...app.peers.values()].filter((item) => !item.playerId).length;
@@ -398,17 +446,19 @@
       await pc.setRemoteDescription({ type: "offer", sdp: app.invitePayload.s });
       await pc.setLocalDescription(await pc.createAnswer());
       await waitForIce(pc);
-      el.answerOutput.value = encodePayload({
+      el.answerOutput.value = await encodePayload({
         r: app.roomId,
         i: app.invitePayload.i,
         a: pc.localDescription.sdp,
         n: name
       });
       el.answerCard.hidden = false;
+      el.answerOutput.focus();
+      el.answerOutput.select();
       showToast("Connection code ready! Send it to your host.");
     } catch (error) {
       console.error("Could not join birthday party:", error);
-      showToast(error.message || "Couldn't join this party. Ask for a fresh invite.");
+      showToast(error.message || "Couldn't prepare a connection code. Please reopen the invite and try again.");
     }
   }
 
@@ -706,24 +756,43 @@
     }
   }
 
-  async function copyText(value, successMessage) {
+  async function copyText(value, successMessage, selectionTarget = null) {
     try {
       if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(value);
-      } else {
-        const helper = document.createElement("textarea");
-        helper.value = value;
-        helper.style.position = "fixed";
-        helper.style.opacity = "0";
-        document.body.appendChild(helper);
-        helper.select();
-        const copied = document.execCommand("copy");
-        helper.remove();
-        if (!copied) throw new Error("Clipboard access was denied.");
+        try {
+          await navigator.clipboard.writeText(value);
+          showToast(successMessage);
+          return;
+        } catch (error) {
+          console.warn("Clipboard API was unavailable; trying the browser copy fallback.", error);
+        }
       }
+      const helper = document.createElement("textarea");
+      helper.value = value;
+      helper.setAttribute("readonly", "");
+      helper.style.position = "fixed";
+      helper.style.top = "0";
+      helper.style.left = "0";
+      helper.style.width = "1px";
+      helper.style.height = "1px";
+      helper.style.opacity = "0";
+      document.body.appendChild(helper);
+      helper.focus();
+      helper.select();
+      helper.setSelectionRange(0, helper.value.length);
+      const copied = document.execCommand("copy");
+      helper.remove();
+      if (!copied) throw new Error("Clipboard access was denied.");
       showToast(successMessage);
     } catch (error) {
-      showToast("Couldn't copy automatically. Select the text and copy it instead.");
+      if (selectionTarget) {
+        selectionTarget.focus();
+        selectionTarget.select();
+        if (typeof selectionTarget.setSelectionRange === "function") {
+          selectionTarget.setSelectionRange(0, selectionTarget.value.length);
+        }
+      }
+      showToast("Copy wasn't allowed. The code is selected—press and hold it, then choose Copy.");
       console.error("Clipboard copy failed:", error);
     }
   }
@@ -749,16 +818,22 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function setupGuestLanding() {
-    app.invitePayload = getInviteFromHash();
-    if (!app.invitePayload) return;
-    el.inviteNotice.hidden = false;
-    el.roomPanel.hidden = false;
-    el.hostLobby.hidden = true;
-    el.joinLobby.hidden = false;
-    el.hero.hidden = false;
-    $("room-title").textContent = "A seat is saved for you!";
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  async function setupGuestLanding() {
+    try {
+      app.invitePayload = await getInviteFromHash();
+      if (!app.invitePayload) return;
+      el.inviteNotice.hidden = true;
+      el.hero.hidden = true;
+      el.roomPanel.hidden = false;
+      el.hostLobby.hidden = true;
+      el.joinLobby.hidden = false;
+      $("guest-waiting").hidden = true;
+      $("room-title").textContent = "A seat is saved for you!";
+      window.scrollTo({ top: 0, behavior: "auto" });
+    } catch (error) {
+      console.error("Could not open the party invite:", error);
+      showToast(error.message || "This party invite could not be opened. Ask the host for a new link.");
+    }
   }
 
   function setupSolo() {
@@ -817,7 +892,11 @@
   $("join-button").addEventListener("click", joinParty);
   $("copy-invite").addEventListener("click", () => copyText(el.inviteLink.value, "Invite link copied! Send it to a friend."));
   $("game-copy-invite").addEventListener("click", () => copyText(el.gameInviteLink.value, "Invite link copied! Send it to a friend."));
-  $("copy-answer").addEventListener("click", () => copyText(el.answerOutput.value, "Connection code copied! Send it to your host."));
+  $("copy-answer").addEventListener("click", () => copyText(
+    el.answerOutput.value,
+    "Connection code copied! Send it to your host.",
+    el.answerOutput
+  ));
   $("home-button").addEventListener("click", resetToHome);
   $("play-again-button").addEventListener("click", () => {
     const name = playerName();
@@ -839,5 +918,5 @@
   if (!window.isSecureContext && window.location.protocol !== "file:") {
     console.warn("Direct browser multiplayer requires HTTPS or localhost.");
   }
-  setupGuestLanding();
+  void setupGuestLanding();
 })();
